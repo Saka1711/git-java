@@ -60,7 +60,7 @@ public class Main {
         ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
       iis.transferTo(baos);
       String decompData = baos.toString();
-      System.out.println(decompData.substring(decompData.indexOf('\0') + 1));
+      System.out.print(decompData.substring(decompData.indexOf('\0') + 1));
     } catch (IOException e) {
       throw new RuntimeException("Error Reading Blob File", e);
     }
