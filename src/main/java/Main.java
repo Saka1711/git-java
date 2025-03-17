@@ -7,6 +7,9 @@ import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.security.MessageDigest;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.zip.DeflaterOutputStream;
 import java.util.zip.InflaterInputStream;
 
@@ -42,6 +45,13 @@ public class Main {
         } catch (Exception e) {
           throw new RuntimeException("Error creating Git Blob", e);
         }
+      }
+      case "ls-tree" -> {
+        if(args.length != 3 || !args[1].equals("--name-only")){
+          System.out.println("Usage: ls-tree --name-only <hash>");
+          return;
+        }
+        listTree(args[2]);
       }
       default -> System.out.println("Unknown command: " + command);
     }
@@ -102,6 +112,44 @@ public class Main {
       dos.write(blob);
     }
     return sha1Hash;
+  }
+
+  private static void listTree(String treeSha) {
+    File treeFile = new File(".git/objects/" + treeSha.substring(0, 2) + "/" + treeSha.substring(2));
+    if (!treeFile.exists()) {
+      System.out.println("Tree Object not found: " + treeSha);
+      return;
+    }
+    try (FileInputStream fis = new FileInputStream(treeFile);
+        InflaterInputStream iis = new InflaterInputStream(fis);
+        ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+      iis.transferTo(baos);
+      byte[] decompData = baos.toByteArray();
+      int i = 0;
+      while (i < decompData.length && decompData[i] != '\0') {
+        i++;
+      }
+      i++;
+      List<String> entries = new ArrayList<>();
+      while (i < decompData.length) {
+        int spaceIndex = i;
+        while (decompData[spaceIndex] != ' ') {
+          spaceIndex++;
+        }
+        int nullIndex = spaceIndex;
+        while (decompData[nullIndex] != '\0') {
+          nullIndex++;
+        }
+        String fileName = new String(decompData, spaceIndex + 1, nullIndex - spaceIndex - 1);
+        entries.add(fileName);
+        i = nullIndex + 21;
+      }
+      Collections.sort(entries);
+      entries.forEach(System.out::println);
+
+    } catch (IOException e) {
+      throw new RuntimeException("Error Reading Tree File", e);
+    }
   }
 
   private static byte[] concatenate(byte[] a, byte[] b) {
