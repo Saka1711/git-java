@@ -2,6 +2,7 @@ import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.zip.DeflaterOutputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.io.*;
 
@@ -13,7 +14,8 @@ public class GitUtils {
 
     public static byte[] concatenate(byte[]... arrays) {
         int length = 0;
-        for (byte[] array : arrays) length += array.length;
+        for (byte[] array : arrays)
+            length += array.length;
         byte[] result = new byte[length];
         int offset = 0;
         for (byte[] array : arrays) {
@@ -26,21 +28,28 @@ public class GitUtils {
     public static List<String> parseTreeEntries(byte[] data) {
         List<String> entries = new ArrayList<>();
         int i = 0;
-        while (i < data.length && data[i] != '\0') i++;
-        i++;
         while (i < data.length) {
             int spaceIndex = i;
-            while (data[spaceIndex] != ' ') spaceIndex++;
-            int nullIndex = spaceIndex;
-            while (data[nullIndex] != '\0') nullIndex++;
-            entries.add(new String(data, spaceIndex + 1, nullIndex - spaceIndex - 1));
+            while (data[spaceIndex] != ' ')
+                spaceIndex++;
+            String mode = new String(data, i, spaceIndex - i);
+            int nullIndex = spaceIndex + 1;
+            while (data[nullIndex] != '\0')
+                nullIndex++;
+            String filename = new String(data, spaceIndex + 1, nullIndex - spaceIndex - 1);
+            byte[] shaBytes = new byte[20];
+            System.arraycopy(data, nullIndex + 1, shaBytes, 0, 20);
+            String sha = bytesToHex(shaBytes);
+
+            entries.add(mode + " " + filename + " " + sha);
             i = nullIndex + 21;
         }
         return entries;
     }
 
     public static byte[] buildTreeContent(List<byte[]> entries) {
-        byte[] treeHeader = concatenate("tree ".getBytes(), String.valueOf(entries.stream().mapToInt(e -> e.length).sum()).getBytes(), "\0".getBytes());
+        int totalLength = entries.stream().mapToInt(e -> e.length).sum();
+        byte[] treeHeader = ("tree " + totalLength + "\0").getBytes();
         for (byte[] entry : entries) {
             treeHeader = concatenate(treeHeader, entry);
         }
@@ -48,20 +57,26 @@ public class GitUtils {
     }
 
     public static String storeObject(byte[] content, String type) throws Exception {
-        String sha1Hash = computeSHA1(content);
+        String header = type + " " + content.length + "\0";
+        byte[] fullContent = concatenate(header.getBytes(StandardCharsets.UTF_8), content);
+
+        String sha1Hash = computeSHA1(fullContent);
         String dir = ".git/objects/" + sha1Hash.substring(0, 2);
         String file = sha1Hash.substring(2);
         Files.createDirectories(Paths.get(dir));
+
         try (OutputStream os = new FileOutputStream(dir + "/" + file);
-             DeflaterOutputStream dos = new DeflaterOutputStream(os)) {
-            dos.write(content);
+                DeflaterOutputStream dos = new DeflaterOutputStream(os)) {
+            dos.write(fullContent);
         }
+
         return sha1Hash;
     }
 
     public static String bytesToHex(byte[] bytes) {
         StringBuilder sb = new StringBuilder();
-        for (byte b : bytes) sb.append(String.format("%02x", b));
+        for (byte b : bytes)
+            sb.append(String.format("%02x", b));
         return sb.toString();
     }
 

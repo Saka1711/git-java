@@ -8,6 +8,7 @@ public class Main {
           case "hash-object" -> System.out.println(GitBlob.createBlob(args[2]));
           case "ls-tree" -> GitTree.listTree(args[2]);
           case "write-tree" -> System.out.println(GitTree.writeTree(Paths.get(".")));
+          case "commit-tree" -> GitCommitTree.main(args);
           default -> System.out.println("Unknown command: " + args[0]);
       }
   }
