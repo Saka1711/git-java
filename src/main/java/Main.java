@@ -9,6 +9,7 @@ public class Main {
           case "ls-tree" -> GitTree.listTree(args[2]);
           case "write-tree" -> System.out.println(GitTree.writeTree(Paths.get(".")));
           case "commit-tree" -> GitCommitTree.main(args);
+          case "clone" -> GitClone.cloneRepository(args[1], args[2]);
           default -> System.out.println("Unknown command: " + args[0]);
       }
   }
